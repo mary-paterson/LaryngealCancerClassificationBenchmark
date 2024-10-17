@@ -1,0 +1,1 @@
+Each folder contains code required to train the models
