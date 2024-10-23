@@ -13,6 +13,11 @@ from sklearn.linear_model import LogisticRegression
 
 from sklearn.model_selection import GridSearchCV
 
+from custom_preprocessing import MFCCPreprocessor
+
+from imblearn.pipeline import Pipeline as ImPipeline
+from imblearn.over_sampling import SMOTE
+
 #Defines the demographic and symptom columns required for each of the model types
 non_audio_features = {'Rec_Only':['filename'],
                      'Age_Sex':['filename', 'Age', 'Sex'],
@@ -59,15 +64,25 @@ def format_input_dataframe(audio_features, demographics, train_files, input_type
 
     return train_df
 
-def create_preprocessor(audio_features, symptom_features, audio_preprocessing=None, symptom_preprocessing=None):
-
+def create_preprocessor(audio_feature, audio_features, symptom_features, audio_preprocessing=None, symptom_preprocessing=None):
+    if len(audio_features)==1:
+        audio_features=audio_features[0]
+        
     if audio_preprocessing==None:
-        # Define the preprocessing and feature selection for audio features
-        audio_preprocessing = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='mean')),  # Imputer step
-            ('scaler', StandardScaler()),  # Scaling step
-            ('feature_selection', SelectFromModel(DecisionTreeClassifier(random_state=42)))  # Feature Selection
-        ])
+        if audio_feature != 'MFCC':
+            # Define the preprocessing and feature selection for audio features
+            audio_preprocessing = Pipeline(steps=[
+                ('imputer', SimpleImputer(strategy='mean')),  # Imputer step
+                ('scaler', StandardScaler()),  # Scaling step
+                ('feature_selection', SelectFromModel(DecisionTreeClassifier(random_state=42)))  # Feature Selection
+            ])
+        else:
+            audio_preprocessing = Pipeline(steps=[
+                ('mfcc_preprocessor', MFCCPreprocessor()),
+                ('imputer', SimpleImputer(strategy='mean')),  # Imputer step
+                ('scaler', StandardScaler()),  # Scaling step
+                ('feature_selection', SelectFromModel(DecisionTreeClassifier(random_state=42)))  # Feature Selection
+            ])
     
     if symptom_preprocessing==None:
         # Define the preprocessing for symptoms and demographics if any
@@ -75,7 +90,7 @@ def create_preprocessor(audio_features, symptom_features, audio_preprocessing=No
             ('imputer', SimpleImputer(strategy='constant', fill_value=0)),  # Imputer step
             ('scaler', StandardScaler())  # Scaling step
         ])
-
+        
     # Combine the preprocessing for audio features with symptom preprocessing
     preprocessor = ColumnTransformer(
         transformers=[
